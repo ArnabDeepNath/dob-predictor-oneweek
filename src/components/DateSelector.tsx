@@ -25,6 +25,7 @@ interface DateSelectorProps {
 const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
   const [date, setDate] = React.useState<Date>();
   const [calendarOpen, setCalendarOpen] = React.useState(false);
+  const [currentMonth, setCurrentMonth] = React.useState<Date>(new Date());
   
   // Generate years for the selector (current year down to 100 years ago)
   const currentYear = new Date().getFullYear();
@@ -50,20 +51,28 @@ const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
       newDate.setMonth(newDate.getMonth() + 1); // Move to correct month
     }
     
+    // Update the calendar view month
+    const newMonth = new Date(newDate);
+    setCurrentMonth(newMonth);
+    
     setDate(newDate);
   };
 
   // Handler for month selection
   const handleMonthSelect = (month: string) => {
     const newDate = date ? new Date(date) : new Date();
-    newDate.setMonth(parseInt(month));
+    const monthNum = parseInt(month);
+    newDate.setMonth(monthNum);
     
     // If the date becomes invalid (e.g., Feb 29 in non-leap year)
     // adjust to the last day of the month
-    const originalMonth = parseInt(month);
-    if (newDate.getMonth() !== originalMonth) {
+    if (newDate.getMonth() !== monthNum) {
       newDate.setDate(0); // Last day of previous month
     }
+    
+    // Update the calendar view month
+    const newMonth = new Date(newDate);
+    setCurrentMonth(newMonth);
     
     setDate(newDate);
   };
@@ -131,6 +140,8 @@ const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
             mode="single"
             selected={date}
             onSelect={handleSelect}
+            month={currentMonth}
+            onMonthChange={setCurrentMonth}
             disabled={(date) => date > new Date()}
             initialFocus
             className={cn("p-3 pointer-events-auto rounded-lg")}
