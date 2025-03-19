@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -10,6 +10,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface DateSelectorProps {
   onDateSelected: (date: Date) => void;
@@ -17,12 +24,48 @@ interface DateSelectorProps {
 
 const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
   const [date, setDate] = React.useState<Date>();
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
+  
+  // Generate years for the selector (current year down to 100 years ago)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 120 }, (_, i) => currentYear - i);
   
   const handleSelect = (selectedDate: Date | undefined) => {
     if (selectedDate) {
       setDate(selectedDate);
       onDateSelected(selectedDate);
+      setCalendarOpen(false);
     }
+  };
+
+  // Handler for year selection
+  const handleYearSelect = (year: string) => {
+    const newDate = date ? new Date(date) : new Date();
+    newDate.setFullYear(parseInt(year));
+    
+    // If the date becomes invalid (e.g., Feb 29 in non-leap year)
+    // adjust to the last day of the month
+    if (newDate.getFullYear() !== parseInt(year)) {
+      newDate.setDate(0); // Last day of previous month
+      newDate.setMonth(newDate.getMonth() + 1); // Move to correct month
+    }
+    
+    setDate(newDate);
+  };
+
+  // Handler for month selection
+  const handleMonthSelect = (month: string) => {
+    const newDate = date ? new Date(date) : new Date();
+    newDate.setMonth(parseInt(month));
+    
+    // If the date becomes invalid (e.g., Feb 29 in non-leap year)
+    // adjust to the last day of the month
+    const originalMonth = parseInt(month);
+    if (newDate.getMonth() !== originalMonth) {
+      newDate.setDate(0); // Last day of previous month
+    }
+    
+    setDate(newDate);
   };
 
   return (
@@ -36,7 +79,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
         </h1>
       </div>
       
-      <Popover>
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -51,6 +94,39 @@ const DateSelector: React.FC<DateSelectorProps> = ({ onDateSelected }) => {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0 bg-white/90 backdrop-blur-sm border border-input/30 shadow-lg" align="center">
+          <div className="p-2 flex gap-2 border-b">
+            <Select 
+              onValueChange={handleMonthSelect} 
+              value={date ? date.getMonth().toString() : new Date().getMonth().toString()}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Month" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <SelectItem key={i} value={i.toString()}>
+                    {format(new Date(2000, i, 1), "MMMM")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select 
+              onValueChange={handleYearSelect} 
+              value={date ? date.getFullYear().toString() : new Date().getFullYear().toString()}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Calendar
             mode="single"
             selected={date}
