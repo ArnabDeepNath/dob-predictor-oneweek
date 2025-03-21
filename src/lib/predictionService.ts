@@ -1,3 +1,4 @@
+
 import { format } from "date-fns";
 import axios from 'axios';
 import * as blastro from 'blastro';
@@ -134,7 +135,7 @@ const getCurrentDate = () => {
 };
 
 // Function to get the current planetary positions
-const getCurrentPlanetaryPositions = (latitude, longitude) => {
+const getCurrentPlanetaryPositions = (latitude?: string, longitude?: string) => {
   // Get current date
   const currentDate = getCurrentDate();
   
@@ -155,7 +156,7 @@ const getCurrentPlanetaryPositions = (latitude, longitude) => {
     };
 
     // Use blastro to get planetary positions
-    const planets = {};
+    const planets: Record<string, { longitude: number }> = {};
     
     // Get positions for each planet individually to avoid MERCURY not defined error
     planets.Sun = { longitude: blastro.returnSun(obs) };
@@ -286,7 +287,7 @@ const getDayRulerPlanet = (day) => {
 };
 
 // Main function to get weekly predictions
-const generateSimplePredictions = async (birthDate) => {
+const generateSimplePredictions = async (birthDate: Date) => {
   try {
     // Use birth date to create deterministic but personalized predictions
     const birthDetails = {
@@ -303,7 +304,7 @@ const generateSimplePredictions = async (birthDate) => {
     const vimshottariDasha = computeVimshottari(moonNakshatra);
     
     // Get current planetary positions
-    const currentPositions = getCurrentPlanetaryPositions();
+    const currentPositions = getCurrentPlanetaryPositions("42:43:38", "82:43:00");
     
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const predictions = [];
@@ -389,4 +390,3 @@ export {
   computeVimshottari,
   generateSimplePredictions
 };
-
