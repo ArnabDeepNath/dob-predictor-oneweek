@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import axios from 'axios';
+import * as blastro from 'blastro';
 
 // Astrological effects database
 const dashaPredictions = {
@@ -87,7 +88,7 @@ const dashaPredictions = {
     "MAR": "Fear of accident from riding in horse, two wheelers or other vehicles, trouble from robbers and wicked persons, tumour in the stomach or stomach aches, headaches.",
     "RAH": "Loss to your partner and teacher, a cheap attitude or loss of character on your part due to company of immoral females, a spill of blood, acidity.",
     "JUP": "Enemity with others, prosperity through antogonism, unexpected gain from your superior or the authorities, worried about loss or damage of your property, land and domestic animals.",
-    "SAT": "Getting caught in the web of 'apparent' (mitya), mad thinking of an illegimate son, a short spell of hunger, opposition from your partner, breaking of a promise you made.",
+    "SAT": "Getting caught in the web of 'apparent' (mitya), mad thinking of an illegitimate son, a short spell of hunger, opposition from your partner, breaking of a promise you made.",
     "MER": "Meeting various people, separation from partner, trouble from opponents, increase of income and good fortune."
   },
   "VEN": {
@@ -132,38 +133,99 @@ const getCurrentDate = () => {
   };
 };
 
-// Mock function to get the current planetary positions (since blastro is causing issues)
+// Function to get the current planetary positions
 const getCurrentPlanetaryPositions = (latitude, longitude) => {
-  // Return mock planetary positions to avoid using blastro
-  return {
-    Sun: { longitude: 120.5 },
-    Moon: { longitude: 85.2 },
-    Mercury: { longitude: 115.7 },
-    Venus: { longitude: 140.3 },
-    Mars: { longitude: 200.1 },
-    Jupiter: { longitude: 315.8 },
-    Saturn: { longitude: 280.4 },
-    Rahu: { longitude: 45.6 },
-    Ketu: { longitude: 225.6 }
-  };
+  // Get current date
+  const currentDate = getCurrentDate();
+  
+  try {
+    // Observation details
+    const obs = {
+      day: currentDate.day,
+      dst: false,
+      hours: currentDate.hours,
+      latitude: latitude || "42:43:38", // Default latitude if not provided
+      longitude: longitude || "82:43:00", // Default longitude if not provided
+      minutes: currentDate.minutes,
+      month: currentDate.month,
+      name: "Location",
+      seconds: currentDate.seconds,
+      tz: 0, // Consider adjusting based on user's timezone
+      year: currentDate.year
+    };
+
+    // Use blastro to get planetary positions
+    const planets = {};
+    
+    // Get positions for each planet individually to avoid MERCURY not defined error
+    planets.Sun = { longitude: blastro.returnSun(obs) };
+    planets.Moon = { longitude: blastro.returnMoon(obs) };
+    planets.Mercury = { longitude: blastro.returnMercury(obs) };
+    planets.Venus = { longitude: blastro.returnVenus(obs) };
+    planets.Mars = { longitude: blastro.returnMars(obs) };
+    planets.Jupiter = { longitude: blastro.returnJupiter(obs) };
+    planets.Saturn = { longitude: blastro.returnSaturn(obs) };
+    
+    // For Rahu and Ketu, we can calculate based on Moon's nodes
+    const moonNodes = blastro.returnMoonNodes(obs);
+    planets.Rahu = { longitude: moonNodes.NorthNode };
+    planets.Ketu = { longitude: moonNodes.SouthNode };
+    
+    return planets;
+  } catch (error) {
+    console.error("Error calculating planetary positions with blastro:", error);
+    // Fallback values if blastro calculation fails
+    return {
+      Sun: { longitude: 0 },
+      Moon: { longitude: 0 },
+      Mercury: { longitude: 0 },
+      Venus: { longitude: 0 },
+      Mars: { longitude: 0 },
+      Jupiter: { longitude: 0 },
+      Saturn: { longitude: 0 },
+      Rahu: { longitude: 0 },
+      Ketu: { longitude: 180 } // Ketu is always 180° from Rahu
+    };
+  }
 };
 
 // Function to get natal chart data
 const getNatalChart = async (birthDetails) => {
   try {
-    // Simply return mock data for now, to avoid API calls that might fail
+    // Create observation details for blastro from birth details
+    const obs = {
+      day: birthDetails.day,
+      dst: false,
+      hours: birthDetails.hours || 12,
+      latitude: birthDetails.latitude || "42:43:38",
+      longitude: birthDetails.longitude || "82:43:00",
+      minutes: birthDetails.minutes || 0,
+      month: birthDetails.month,
+      name: "Birth Location",
+      seconds: birthDetails.seconds || 0,
+      tz: 0, // Adjust as needed
+      year: birthDetails.year
+    };
+    
+    // Calculate positions using blastro
+    const moonLongitude = blastro.returnMoon(obs);
+    
+    // Convert Moon longitude to Nakshatra (27 Nakshatras in 360 degrees)
+    // Each Nakshatra spans 13°20' (or 13.33 degrees)
+    const nakshatraIndex = Math.floor(moonLongitude / 13.33) + 1;
+    
     return {
       success: true,
       output: [
         {
           planet: { en: "Moon" },
-          nakshatra: String(Math.floor(Math.random() * 27) + 1)
+          nakshatra: String(nakshatraIndex)
         }
       ]
     };
   } catch (error) {
-    console.error("Error fetching natal data:", error);
-    throw new Error("Failed to fetch natal chart data");
+    console.error("Error calculating natal chart with blastro:", error);
+    throw new Error("Failed to calculate natal chart data");
   }
 };
 
@@ -226,30 +288,25 @@ const getDayRulerPlanet = (day) => {
 // Main function to get weekly predictions
 const generateSimplePredictions = async (birthDate) => {
   try {
-    // Use a combination of date parts to create a deterministic set of predictions
-    const day = birthDate.getDate();
-    const month = birthDate.getMonth() + 1;
+    // Use birth date to create deterministic but personalized predictions
+    const birthDetails = {
+      year: birthDate.getFullYear(),
+      month: birthDate.getMonth() + 1,
+      day: birthDate.getDate(),
+      hours: birthDate.getHours() || 12,
+      minutes: birthDate.getMinutes() || 0
+    };
+    
+    // Use blastro to get planet positions at birth
+    const natalChart = await getNatalChart(birthDetails);
+    const moonNakshatra = extractMoonNakshatra(natalChart);
+    const vimshottariDasha = computeVimshottari(moonNakshatra);
+    
+    // Get current planetary positions
+    const currentPositions = getCurrentPlanetaryPositions();
     
     const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const predictions = [];
-    
-    // Mock predictions database
-    const mockPredictions = [
-      "A moment of clarity will guide an important decision.",
-      "An unexpected opportunity may present itself.",
-      "Take time to reflect on recent accomplishments.",
-      "A conversation with a close friend will provide insight.",
-      "Your creative energy will be at its peak.",
-      "Focus on balance between work and personal life.",
-      "A small act of kindness will have meaningful impact.",
-      "Consider exploring a new interest or hobby.",
-      "Look for ways to improve your daily routine.",
-      "Your persistence will pay off in a challenging situation.",
-      "Trust your intuition when making important choices.",
-      "A change in perspective will help solve a problem.",
-      "Make time for self-care and personal rejuvenation.",
-      "An old connection may resurface with new significance."
-    ];
     
     // Generate predictions for the next 7 days
     for (let i = 0; i < 7; i++) {
@@ -257,11 +314,28 @@ const generateSimplePredictions = async (birthDate) => {
       const dayName = weekdays[dayIndex];
       const dayRuler = getDayRulerPlanet(dayName);
       
-      // Use birth date to create a deterministic prediction index
-      const predictionIndex = (day + month + i) % mockPredictions.length;
+      // Use a combination of birth details, day ruler, and current planet positions
+      // to select prediction from dashaPredictions
       
-      // Add planetary influence for variety
-      const prediction = `${mockPredictions[predictionIndex]} ${dayRuler}'s influence brings focus to relationships and communication.`;
+      // Get current dasha planets (simplified approach)
+      const dashaPlanet = vimshottariDasha[0].planet;
+      const dashaPlanetNormalized = normalizePlanetName(dashaPlanet);
+      const dayRulerNormalized = normalizePlanetName(dayRuler);
+      
+      let prediction = "";
+      
+      // Try to get prediction from dasha database
+      if (dashaPredictions[dashaPlanetNormalized] && 
+          dashaPredictions[dashaPlanetNormalized][dayRulerNormalized]) {
+        prediction = dashaPredictions[dashaPlanetNormalized][dayRulerNormalized];
+      } else if (dashaPredictions[dayRulerNormalized] && 
+                 dashaPredictions[dayRulerNormalized][dashaPlanetNormalized]) {
+        // Try reverse combination if first one doesn't exist
+        prediction = dashaPredictions[dayRulerNormalized][dashaPlanetNormalized];
+      } else {
+        // Fallback to a generic prediction based on day ruler
+        prediction = `${dayRuler}'s influence brings focus to your personal and professional endeavors today. Be mindful of communication and relationships.`;
+      }
       
       predictions.push(prediction);
     }
@@ -315,3 +389,4 @@ export {
   computeVimshottari,
   generateSimplePredictions
 };
+
